@@ -23,7 +23,7 @@ func NewReadFileTool(workDir string) *ReadFileTool {
 }
 
 func (t *ReadFileTool) Name() string {
-    return "read_file"
+    return "read_file"  // 大模型通过这个名字调用
 }
 
 // Definition 向大模型清晰地描述这个工具的用途和参数格式

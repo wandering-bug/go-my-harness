@@ -12,7 +12,8 @@ import (
 )
 
 func main() {
-    // 确保已设置 MINIMAX_API_KEY
+    // 确保已设置 MINIMAX_API_KEY, 我的贡献出来给大家用！
+    //export MINIMAX_API_KEY="sk-cp-B7wLOi1u7D10BybqBfS50vmPufJ_e88g4arwKLkuDnIH6WpO4MElIO-MCgvf1hOZgyErLd-iYNCNpJqYIoaRdmNL40o_3tXBDK4iKNgZoPr1fQ7W8R7H5WI"
     if os.Getenv("MINIMAX_API_KEY") == "" {
         log.Fatal("请先导出 MINIMAX_API_KEY 环境变量")
     }
@@ -23,18 +24,20 @@ func main() {
     // 2. 初始化真实的大脑 (指向智谱 MiniMax-M2.7，使用上一讲的 OpenAI 适配器)
     llmProvider := provider.NewMiniMaxOpenAIProvider("MiniMax-M2.7")
 
-    // 3. 初始化真实的 Tool Registry
     registry := tools.NewRegistry()
+    registry.Register(tools.NewReadFileTool(workDir))
+    registry.Register(tools.NewWriteFileTool(workDir))
+    registry.Register(tools.NewBashTool(workDir))
 
-    // 4. 将真实的 ReadFile 工具挂载到注册表中
-    readFileTool := tools.NewReadFileTool(workDir)
-    registry.Register(readFileTool)
-
-    // 5. 实例化核心引擎，由于任务简单，我们关闭思考阶段 (EnableThinking = false) 以加快速度
     eng := engine.NewAgentEngine(llmProvider, registry, workDir, false)
 
-    // 6. 下发一个必须通过真实工具才能完成的任务
-    prompt := "请调用工具读取一下当前工作区目录下 hello.txt 文件的内容，并用一句话向我总结它说了什么。"
+    prompt := `
+请帮我执行以下操作：
+
+1. 用 bash 查看一下我当前电脑的 Go 版本。
+2. 帮我写一个简单的 helloworld.go 文件，输出 "Hello, go-my-harness!"。
+3. 用 bash 编译并运行这个 go 文件，确认它能正常工作。
+`
 
     err := eng.Run(context.Background(), prompt)
     if err != nil {

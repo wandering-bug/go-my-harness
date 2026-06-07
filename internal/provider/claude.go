@@ -6,7 +6,6 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "os"
 
     "github.com/anthropics/anthropic-sdk-go"
     "github.com/anthropics/anthropic-sdk-go/option"
@@ -18,15 +17,8 @@ type MiniMaxProvider struct {
     model  string
 }
 
-// NewMiniMaxProvider 构造函数：基于 Anthropic SDK，指向 MiniMax Claude Format API
-func NewMiniMaxProvider(model string) *MiniMaxProvider {
-    apiKey := os.Getenv("MINIMAX_API_KEY")
-    if apiKey == "" {
-        panic("请设置 MINIMAX_API_KEY 环境变量")
-    }
-    // MiniMax Claude Format API 端点
-    baseURL := "https://minimax-m2.com/api/v1/"
-
+// NewAnthropicProvider 通用构造函数：接受 apiKey、baseURL 和模型名称
+func NewAnthropicProvider(apiKey, baseURL, model string) *MiniMaxProvider {
     return &MiniMaxProvider{
         client: anthropic.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseURL)),
         model:  model,

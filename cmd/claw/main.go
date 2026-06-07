@@ -3,8 +3,10 @@ package main
 
 import (
     "context"
+    "fmt"
     "log"
     "os"
+    "path/filepath"
 
     "github.com/mambo-wang/go-my-harness/internal/engine"
     "github.com/mambo-wang/go-my-harness/internal/provider"
@@ -12,17 +14,32 @@ import (
 )
 
 func main() {
-    // 确保已设置 MINIMAX_API_KEY, 我的贡献出来给大家用！
-    //export MINIMAX_API_KEY="sk-cp-B7wLOi1u7D10BybqBfS50vmPufJ_e88g4arwKLkuDnIH6WpO4MElIO-MCgvf1hOZgyErLd-iYNCNpJqYIoaRdmNL40o_3tXBDK4iKNgZoPr1fQ7W8R7H5WI"
-    if os.Getenv("MINIMAX_API_KEY") == "" {
-        log.Fatal("请先导出 MINIMAX_API_KEY 环境变量")
-    }
-
     // 1. 获取工作区物理边界
     workDir, _ := os.Getwd()
 
-    // 2. 初始化真实的大脑 (指向智谱 MiniMax-M2.7，使用上一讲的 OpenAI 适配器)
-    llmProvider := provider.NewMiniMaxOpenAIProvider("MiniMax-M2.7")
+    // 2. 从 models.json 配置文件读取模型配置
+    configPath := filepath.Join(workDir, "models.json")
+    cfg, err := provider.LoadModelsConfig(configPath)
+    if err != nil {
+        log.Fatalf("加载配置文件失败: %v", err)
+    }
+
+    mc, modelName, err := cfg.GetModelConfig("")
+    if err != nil {
+        log.Fatalf("获取模型配置失败: %v", err)
+    }
+    fmt.Printf("[Config] 使用模型: %s (provider=%s)\n", modelName, mc.Provider)
+
+    // 3. 根据 provider 类型创建 LLM Provider
+    var llmProvider provider.LLMProvider
+    switch mc.Provider {
+    case "openai":
+        llmProvider = provider.NewOpenAIProvider(mc.APIKey, mc.BaseURL, modelName)
+    case "anthropic":
+        llmProvider = provider.NewAnthropicProvider(mc.APIKey, mc.BaseURL, modelName)
+    default:
+        log.Fatalf("不支持的 provider 类型: %s", mc.Provider)
+    }
 
     registry := tools.NewRegistry()
     registry.Register(tools.NewReadFileTool(workDir))
@@ -41,7 +58,7 @@ if user == nil {
     return
 }
 `
-    err := eng.Run(context.Background(), prompt)
+    err = eng.Run(context.Background(), prompt)
     if err != nil {
         log.Fatalf("引擎运行崩溃: %v", err)
     }

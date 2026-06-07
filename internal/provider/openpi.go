@@ -6,7 +6,6 @@ import (
     "context"
     "encoding/json"
     "fmt"
-    "os"
 
     "github.com/openai/openai-go/v3"
     "github.com/openai/openai-go/v3/option"
@@ -19,15 +18,8 @@ type OpenAIProvider struct {
     model  string
 }
 
-// NewMiniMaxOpenAIProvider 构造函数：基于 OpenAI V3 SDK，指向 MiniMax OpenAI 兼容端点
-func NewMiniMaxOpenAIProvider(model string) *OpenAIProvider {
-    apiKey := os.Getenv("MINIMAX_API_KEY")
-    if apiKey == "" {
-        panic("请设置 MINIMAX_API_KEY 环境变量")
-    }
-    // MiniMax OpenAI 兼容端点
-    baseURL := "https://api.minimax.chat/v1/"
-
+// NewOpenAIProvider 通用构造函数：接受 apiKey、baseURL 和模型名称
+func NewOpenAIProvider(apiKey, baseURL, model string) *OpenAIProvider {
     return &OpenAIProvider{
         client: openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseURL)),
         model:  model,

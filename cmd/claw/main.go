@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// 终端交互模式：始终启动
-	fmt.Println("🖥️  Go Tiny Claw 终端模式 (输入 exit 或 quit 退出)")
+	fmt.Println("🖥️  Go My Harness 终端模式 (输入 exit 或 quit 退出)")
 	fmt.Println("─────────────────────────────────────────────────")
 
 	reporter := engine.NewTerminalReporter()

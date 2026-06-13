@@ -1,0 +1,16 @@
+{
+  "default_model": "deepseek-v4-flash",
+  "models": {
+    "deepseek-v4-flash": {
+      "api_key": "sk-0ae5bbace1724813860380dfd84056a5",
+      "base_url": "https://api.deepseek.com/v1/",
+      "provider": "openai"
+    }
+  },
+  "feishu": {
+    "app_id": "cli_a9559ed4f6619cee",
+    "app_secret": "4n7otqvBG30P5X4rFDUVIe3ZdQOSmgWS",
+    "encrypt_key": "",
+    "verify_token": ""
+  }
+}

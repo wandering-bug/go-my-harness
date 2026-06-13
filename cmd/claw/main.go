@@ -2,24 +2,29 @@
 package main
 
 import (
+    "bufio"
     "context"
     "fmt"
     "log"
     "os"
+    "os/signal"
     "path/filepath"
+    "strings"
+    "syscall"
 
-    "github.com/mambo-wang/go-my-harness/internal/engine"
-    "github.com/mambo-wang/go-my-harness/internal/provider"
-    "github.com/mambo-wang/go-my-harness/internal/tools"
+    "github.com/wandering-bug/go-my-harness/internal/engine"
+    "github.com/wandering-bug/go-my-harness/internal/feishu"
+    "github.com/wandering-bug/go-my-harness/internal/provider"
+    "github.com/wandering-bug/go-my-harness/internal/tools"
 )
 
 func main() {
     // 1. 获取工作区物理边界
     workDir, _ := os.Getwd()
 
-    // 2. 从 models.json 配置文件读取模型配置
-    configPath := filepath.Join(workDir, "models.json")
-    cfg, err := provider.LoadModelsConfig(configPath)
+    // 2. 从 config.json 配置文件读取应用配置
+    configPath := filepath.Join(workDir, "config.json")
+    cfg, err := provider.LoadConfig(configPath)
     if err != nil {
         log.Fatalf("加载配置文件失败: %v", err)
     }
@@ -47,17 +52,80 @@ func main() {
     registry.Register(tools.NewBashTool(workDir))
     registry.Register(tools.NewEditFileTool(workDir))
 
-    // 实例化引擎，开启 EnableThinking = true (开启慢思考，促使模型一次性统筹规划)
-    eng := engine.NewAgentEngine(llmProvider, registry, workDir, true)
+	eng := engine.NewAgentEngine(llmProvider, registry, workDir, true)
 
-    // 下发一个需要收集多源信息的任务
-    prompt := `
-    我当前目录下有 a.txt, b.txt, c.txt 三个文件。
-    为了节省时间，请你同时一次性读取这三个文件，并将它们的内容综合起来，告诉我它们分别记录了什么领域的信息。
-    `
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-    err = eng.Run(context.Background(), prompt)
-    if err != nil {
-        log.Fatalf("引擎运行崩溃: %v", err)
-    }
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// 飞书模式：配置文件中飞书字段非空时后台启动
+	if cfg.Feishu != nil && cfg.Feishu.AppID != "" && cfg.Feishu.AppSecret != "" {
+		bot := feishu.NewFeishuBot(eng, cfg.Feishu)
+		go func() {
+			log.Println("🚀 飞书 WebSocket 长连接模式启动...")
+			if err := bot.StartWebSocket(ctx); err != nil {
+				log.Printf("❌ WebSocket 连接失败: %v\n", err)
+			}
+		}()
+	}
+
+	// 终端交互模式：始终启动
+	fmt.Println("🖥️  Go Tiny Claw 终端模式 (输入 exit 或 quit 退出)")
+	fmt.Println("─────────────────────────────────────────────────")
+
+	reporter := engine.NewTerminalReporter()
+	scanner := bufio.NewScanner(os.Stdin)
+
+	for {
+		fmt.Print("\n> ")
+
+		inputCh := make(chan string, 1)
+		go func() {
+			if scanner.Scan() {
+				inputCh <- scanner.Text()
+			} else {
+				inputCh <- ""
+			}
+		}()
+
+		select {
+		case <-sigChan:
+			fmt.Println("\n📴 再见！")
+			cancel()
+			return
+		case input := <-inputCh:
+			input = strings.TrimSpace(input)
+			if input == "" {
+				continue
+			}
+			if input == "exit" || input == "quit" {
+				fmt.Println("📴 再见！")
+				cancel()
+				return
+			}
+
+			runCtx, runCancel := context.WithCancel(ctx)
+			done := make(chan struct{})
+
+			go func() {
+				defer close(done)
+				if err := eng.Run(runCtx, input, reporter); err != nil && runCtx.Err() == nil {
+					log.Printf("❌ Agent 运行失败: %v\n", err)
+				}
+			}()
+
+			select {
+			case <-done:
+				runCancel()
+			case <-sigChan:
+				runCancel()
+				<-done
+				fmt.Println("\n📴 再见！")
+				cancel()
+				return
+			}
+		}
+	}
 }

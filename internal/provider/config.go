@@ -1,5 +1,5 @@
 // provider/config.go
-// 从 models.json 配置文件读取模型配置
+// 从 config.json 配置文件读取应用配置（模型 + 飞书）
 package provider
 
 import (
@@ -16,14 +16,23 @@ type ModelConfig struct {
 	Provider string `json:"provider"` // "openai" 或 "anthropic"
 }
 
-// ModelsConfig models.json 顶层结构
-type ModelsConfig struct {
-	DefaultModel string                 `json:"default_model"`
-	Models       map[string]ModelConfig `json:"models"`
+// FeishuConfig 飞书机器人配置
+type FeishuConfig struct {
+	AppID       string `json:"app_id"`
+	AppSecret   string `json:"app_secret"`
+	EncryptKey  string `json:"encrypt_key"`
+	VerifyToken string `json:"verify_token"`
 }
 
-// LoadModelsConfig 从指定路径加载 models.json 配置文件
-func LoadModelsConfig(configPath string) (*ModelsConfig, error) {
+// AppConfig config.json 顶层结构
+type AppConfig struct {
+	DefaultModel string                 `json:"default_model"`
+	Models       map[string]ModelConfig `json:"models"`
+	Feishu       *FeishuConfig          `json:"feishu,omitempty"`
+}
+
+// LoadConfig 从指定路径加载 config.json 配置文件
+func LoadConfig(configPath string) (*AppConfig, error) {
 	// 如果是相对路径，则基于可执行文件所在目录解析
 	if !filepath.IsAbs(configPath) {
 		// 先尝试基于当前工作目录
@@ -46,7 +55,7 @@ func LoadModelsConfig(configPath string) (*ModelsConfig, error) {
 		return nil, fmt.Errorf("无法读取配置文件 %s: %w", configPath, err)
 	}
 
-	var cfg ModelsConfig
+	var cfg AppConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("配置文件解析失败: %w", err)
 	}
@@ -62,7 +71,7 @@ func LoadModelsConfig(configPath string) (*ModelsConfig, error) {
 }
 
 // GetModelConfig 获取指定模型的配置，如果 name 为空则返回默认模型
-func (c *ModelsConfig) GetModelConfig(name string) (*ModelConfig, string, error) {
+func (c *AppConfig) GetModelConfig(name string) (*ModelConfig, string, error) {
 	if name == "" {
 		name = c.DefaultModel
 	}
